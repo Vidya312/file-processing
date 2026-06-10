@@ -3,9 +3,9 @@ import uuid
 import boto3
 import os
 
-from validator import validate_csv
-from processor import process_csv
-from notifier import send_notification
+from src.validator import validate_csv
+from src.processor import process_csv
+from src.notifier import send_notification
 
 s3 = boto3.client("s3")
 dynamodb = boto3.resource("dynamodb")
