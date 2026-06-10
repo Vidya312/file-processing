@@ -43,5 +43,5 @@ jobs:
       - name: Deploy
         run: |
           aws lambda update-function-code \
-          --function-name company-file-processing-prod \
+          --function-name file-processing-lambda \
           --zip-file fileb://lambda.zip
