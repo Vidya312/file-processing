@@ -22,7 +22,7 @@ def lambda_handler(event, context):
 
     try:
 
-        # Supports both S3 Trigger and EventBridge
+        # Support both S3 Trigger and EventBridge
 
         if "Records" in event:
 
@@ -38,11 +38,36 @@ def lambda_handler(event, context):
 
         else:
 
-            bucket = event["detail"]["bucket"]["name"]
+            bucket = (
+                event["detail"]["bucket"]["name"]
+            )
 
-            key = event["detail"]["object"]["key"]
+            key = (
+                event["detail"]["object"]["key"]
+            )
 
-        print(f"Processing file: {key}")
+        # Prevent recursive processing
+
+        if not key.startswith("incoming/"):
+
+            print(
+                f"Ignoring file outside incoming folder: {key}"
+            )
+
+            return {
+                "statusCode": 200,
+                "body": json.dumps(
+                    {
+                        "message": "Ignored"
+                    }
+                )
+            }
+
+        print(
+            f"Processing file: {key}"
+        )
+
+        # Read file from S3
 
         response = s3.get_object(
             Bucket=bucket,
@@ -55,17 +80,17 @@ def lambda_handler(event, context):
             .decode("utf-8")
         )
 
-        # Validate CSV
+        # Validate file
 
         validate_csv(content)
 
-        # Process CSV
+        # Process file
 
         count = process_csv(content)
 
-        file_id = str(uuid.uuid4())
-
         # Audit Success
+
+        file_id = str(uuid.uuid4())
 
         table.put_item(
             Item={
@@ -109,7 +134,7 @@ def lambda_handler(event, context):
             "statusCode": 200,
             "body": json.dumps(
                 {
-                    "message": "File processed",
+                    "message": "File processed successfully",
                     "recordCount": count
                 }
             )
@@ -117,18 +142,31 @@ def lambda_handler(event, context):
 
     except Exception as e:
 
-        print(f"Error: {str(e)}")
+        print(
+            f"Error: {str(e)}"
+        )
 
         # Audit Failure
 
-        table.put_item(
-            Item={
-                "fileId": str(uuid.uuid4()),
-                "fileName": key if key else "UNKNOWN",
-                "status": "FAILED",
-                "errorMessage": str(e)
-            }
-        )
+        try:
+
+            table.put_item(
+                Item={
+                    "fileId": str(uuid.uuid4()),
+                    "fileName": (
+                        key if key else "UNKNOWN"
+                    ),
+                    "status": "FAILED",
+                    "errorMessage": str(e)
+                }
+            )
+
+        except Exception as audit_error:
+
+            print(
+                f"Audit logging failed: "
+                f"{str(audit_error)}"
+            )
 
         # Move failed file
 
@@ -159,7 +197,7 @@ def lambda_handler(event, context):
         except Exception as move_error:
 
             print(
-                f"Failed to move file: "
+                f"Failed moving file: "
                 f"{str(move_error)}"
             )
 
