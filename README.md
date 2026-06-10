@@ -1,4 +1,4 @@
-# Enterprise File Processing Automation
+# Automated File Processing Automation
 
 ## Overview
 
